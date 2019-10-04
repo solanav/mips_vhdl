@@ -21,7 +21,8 @@ entity processor is
       DRdEn    : out std_logic;                     -- Habilitacion lectura
       DWrEn    : out std_logic;                     -- Habilitacion escritura
       DDataOut : out std_logic_vector(31 downto 0); -- Dato escrito
-      DDataIn  : in  std_logic_vector(31 downto 0)  -- Dato leido
+      DDataIn  : in  std_logic_vector(31 downto 0)  -- Dato leido 
+	  
    );
 end processor;
 
@@ -72,6 +73,105 @@ architecture rtl of processor is
          ZFlag   : out std_logic                        -- Flag Z
       );
    end component;
+   
+   -- reg_bank
+   signal P_A1  : std_logic_vector(4 downto 0);
+   signal P_Rd1 : std_logic_vector(31 downto 0);
+   signal P_A2  : std_logic_vector(4 downto 0);
+   signal P_Rd2 : std_logic_vector(31 downto 0);
+   signal P_A3  : std_logic_vector(4 downto 0);
+   signal P_Wd3 : std_logic_vector(31 downto 0);
+   signal P_We3 : std_logic;
+   
+   -- control_unit
+   signal P_OpCode   : std_logic_vector(31 downto 0);	
+   signal P_Branch   : std_logic;
+   signal P_Jump     : std_logic;
+   signal P_MemToReg : std_logic;
+   signal P_MemWrite : std_logic;
+   signal P_MemRead  : std_logic;
+   signal P_ALUSrc   : std_logic;
+   signal P_ALUOp    : std_logic_vector(2 downto 0);
+   signal P_RegWrite : std_logic;
+   signal P_RegDst   : std_logic;
+   
+   -- alu_control
+	signal ALUOp      : std_logic_vector(2 downto 0);
+	signal Funct      : std_logic_vector(5 downto 0);
+	signal ALUControl : std_logic_vector(3 downto 0);
+	
+	-- alu
+   	signal P_OpA     : std_logic_vector(31 downto 0);
+    signal P_OpB     : std_logic_vector(31 downto 0);
+    signal P_Control : std_logic_vector(3 downto 0);
+    signal P_Result  : std_logic_vector(31 downto 0);
+    signal P_ZFla    : std_logic;
+   
+   signal PC_ADD4 : std_logic_vector(31 downto 0);
+   
+   signal ALURESULT_ADD4 : std_logic_vector(31 downto 0);
+   
+   -- sign extend out
+   signal SIGN_EXTEND_OUT :	std_logic_vector(31 downto 0);
+   
+   
 begin
+	
+	-- sumador despues PC
+	PC_ADD4 <= IAddr + 4;
+	
+	
+	-- sumador ALU Result
+	ALURESULT_ADD4 <= PC_ADD4 + (SIGN_EXTEND_OUT sll 2);
+	
+	-- Sign extend
+	with IDataIn(15) select
+		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & IDataIn when "0",
+										"1111111111111111" & IDataIn when "1";
 
+
+	-- mapeo de componentes a las seniales
+	u1: reg_bank PORT MAP
+	(
+		 Clk   =>  Clk,
+         Reset =>  Reset,
+         A1    =>  P_A1,
+         Rd1   =>  P_Rd1,
+         A2    =>  P_A2,
+         Rd2   =>  P_Rd2,
+         A3    =>  P_A3,
+         Wd3   =>  P_Wd3,
+         We3   =>  P_We3  
+	);
+	
+	u2: control_unit PORT MAP
+	(
+		 OpCode   => P_OpCode,	
+         Branch   => P_Branch,
+         Jump     => P_Jump,
+         MemToReg => P_MemToReg,
+         MemWrite => P_MemWrite,
+         MemRead  => P_MemRead,
+         ALUSrc   => P_ALUSrc,
+         ALUOp    => P_ALUOp,
+         RegWrite => P_RegWrite,
+		 RegDst   => P_RegDst  
+	);
+	
+	u3: alu_control PORT MAP
+	(
+		 ALUOp      => P_ALUOp,
+		 Funct      => P_Funct,
+         ALUControl => P_ALUControl
+	);
+	
+	u4: alu PORT MAP
+	(
+		 OpA     => P_OpA,
+         OpB     => P_OpB,
+         Control => P_Control,
+         Result  => P_Result,
+         ZFlag   => P_ZFlag  
+	);
+	
 end architecture;
