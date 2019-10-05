@@ -20,7 +20,7 @@ entity processor is
       DAddr    : out std_logic_vector(31 downto 0); -- Direccion
       DRdEn    : out std_logic;                     -- Habilitacion lectura
       DWrEn    : out std_logic;                     -- Habilitacion escritura
-      DDataOut : out std_logic_vector(31 downto 0); -- Dato escrito
+	  DDataOut : out std_logic_vector(31 downto 0); -- Dato escrito
       DDataIn  : in  std_logic_vector(31 downto 0)  -- Dato leido 
 	  
    );
@@ -75,13 +75,9 @@ architecture rtl of processor is
    end component;
    
    -- reg_bank
-   signal P_A1  : std_logic_vector(4 downto 0);
    signal P_Rd1 : std_logic_vector(31 downto 0);
-   signal P_A2  : std_logic_vector(4 downto 0);
    signal P_Rd2 : std_logic_vector(31 downto 0);
    signal P_A3  : std_logic_vector(4 downto 0);
-   signal P_Wd3 : std_logic_vector(31 downto 0);
-   signal P_We3 : std_logic;
    
    -- control_unit
    signal P_OpCode   : std_logic_vector(31 downto 0);	
@@ -109,11 +105,25 @@ architecture rtl of processor is
    
    signal PC_ADD4 : std_logic_vector(31 downto 0);
    
-   signal ALURESULT_ADD4 : std_logic_vector(31 downto 0);
+   signal ALURESULT_ADD : std_logic_vector(31 downto 0);
    
    -- sign extend out
    signal SIGN_EXTEND_OUT :	std_logic_vector(31 downto 0);
    
+   -- mux_out
+   signal MUX_OUT :	std_logic_vector(31 downto 0);
+   
+   -- instruction memory
+   signal INSTRUCTION_MEMORY : std_logic_vector(31 downto 0);
+   
+   -- WRITE_REGISTER_MUX
+   signal WRITE_REGISTER_MUX : std_logic_vector(4 downto 0);
+   
+   -- WRITE_DATA_MUX
+   signal WRITE_DATA_MUX : std_logic_vector(31 downto 0);
+   
+   -- MUX_ALU_IN
+   signal MUX_ALU_IN : std_logic_vector(31 downto 0);
    
 begin
 	
@@ -122,31 +132,74 @@ begin
 	
 	
 	-- sumador ALU Result
-	ALURESULT_ADD4 <= PC_ADD4 + (SIGN_EXTEND_OUT sll 2);
+	ALURESULT_ADD <= PC_ADD4 + (SIGN_EXTEND_OUT sll 2);
 	
 	-- Sign extend
-	with IDataIn(15) select
-		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & IDataIn when "0",
-										"1111111111111111" & IDataIn when "1";
+	with INSTRUCTION_MEMORY(15) select
+		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & INSTRUCTION_MEMORY when "0",
+										"1111111111111111" & INSTRUCTION_MEMORY when "1";
 
-
+	
+	-- mux
+	with (P_Branch and P_ZFlag) select
+		MUX_OUT <= PC_ADD4 when "0",
+				   ALURESULT_ADD when "1";
+	
+	-- pc
+	process(Clk, Reset) 
+	begin
+		if Reset = '1' then
+			IAddr <= (others => '0');	
+		elsif rising_edge(Clk) then
+			IAddr <= MUX_OUT;
+		end if;
+	end process;
+	
+	-- instruction memory
+	INSTRUCTION_MEMORY <= IDataIn;
+	
+	-- WRITE_REGISTER_MUX
+	with P_RegDst select
+		WRITE_REGISTER_MUX <= IDataIn(20 downto 16) when "0",
+							  IDataIn(15 downto 11) when "1"; 
+	
+	-- MUX_ALU_IN
+	with P_ALUSrc select
+		MUX_ALU_IN <= P_Rd2 when "0",
+					  SIGN_EXTEND_OUT when "1";
+	
+	-- data memory
+	DAddr <= P_Result;
+	DDataOut <= P_Rd2;
+	DRdEn <= P_MemRead;
+	DWrEn <= P_MemWrite;
+	
+	-- WRITE_DATA_MUX  
+	with P_MemToReg select
+		WRITE_DATA_MUX <= P_Result when "0",
+						  DDataIn when "1";
+	
+	
+	
+	
+	
 	-- mapeo de componentes a las seniales
 	u1: reg_bank PORT MAP
 	(
 		 Clk   =>  Clk,
          Reset =>  Reset,
-         A1    =>  P_A1,
+         A1    =>  INSTRUCTION_MEMORY(25 downto 21),
          Rd1   =>  P_Rd1,
-         A2    =>  P_A2,
+         A2    =>  INSTRUCTION_MEMORY(20 downto 16),
          Rd2   =>  P_Rd2,
-         A3    =>  P_A3,
-         Wd3   =>  P_Wd3,
-         We3   =>  P_We3  
+         A3    =>  WRITE_REGISTER_MUX,
+         Wd3   =>  WRITE_DATA_MUX,
+         We3   =>  P_RegWrite
 	);
 	
 	u2: control_unit PORT MAP
 	(
-		 OpCode   => P_OpCode,	
+		 OpCode   => INSTRUCTION_MEMORY(31 downto 26),	
          Branch   => P_Branch,
          Jump     => P_Jump,
          MemToReg => P_MemToReg,
@@ -161,15 +214,15 @@ begin
 	u3: alu_control PORT MAP
 	(
 		 ALUOp      => P_ALUOp,
-		 Funct      => P_Funct,
+		 Funct      => INSTRUCTION_MEMORY(5 downto 0),
          ALUControl => P_ALUControl
 	);
 	
 	u4: alu PORT MAP
 	(
-		 OpA     => P_OpA,
-         OpB     => P_OpB,
-         Control => P_Control,
+		 OpA     => P_Rd1,
+         OpB     => MUX_ALU_IN,
+         Control => P_ALUControl,
          Result  => P_Result,
          ZFlag   => P_ZFlag  
 	);
