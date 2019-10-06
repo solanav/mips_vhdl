@@ -155,8 +155,8 @@ begin
 	-- Sign extend
 	with INSTRUCTION_MEMORY(15) select
 		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & INSTRUCTION_MEMORY(15 downto 0) when '0',
-						"1111111111111111" & INSTRUCTION_MEMORY(15 downto 0) when '1',
-						"1111111111111111" & INSTRUCTION_MEMORY(15 downto 0) when others ;
+						"1111111111111111" & INSTRUCTION_MEMORY when '1',
+						"1111111111111111" & INSTRUCTION_MEMORY when others ;
 
 	
 	-- mux

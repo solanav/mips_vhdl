@@ -53,7 +53,7 @@ architecture rtl of alu_control is
    constant ALUC_ERR   : t_aluOp := "111";
 
 begin
-   process(ALUOp)
+   process
    begin
       case ALUOp is
          when ALUC_RTYPE => -- R-Type
@@ -64,7 +64,7 @@ begin
                when F_SUB  => ALUControl <= ALU_SUB; -- SUB
                when F_XOR  => ALUControl <= ALU_XOR; -- XOR
                when others => ALUControl <= ALU_ERR; -- ERROR
-            end case;
+            end case
          when ALUC_ADD => ALUControl <= ALU_ADD; -- LW, SW, ADDI, J
          when ALUC_SUB => ALUControl <= ALU_SUB; -- BEQ
          when ALUC_S16 => ALUControl <= ALU_S16; -- LUI
