@@ -20,7 +20,7 @@ entity processor is
       DAddr    : out std_logic_vector(31 downto 0); -- Direccion
       DRdEn    : out std_logic;                     -- Habilitacion lectura
       DWrEn    : out std_logic;                     -- Habilitacion escritura
-	  DDataOut : out std_logic_vector(31 downto 0); -- Dato escrito
+      DDataOut : out std_logic_vector(31 downto 0); -- Dato escrito
       DDataIn  : in  std_logic_vector(31 downto 0)  -- Dato leido 
 	  
    );
@@ -179,7 +179,16 @@ architecture rtl of processor is
    signal ALURES_EXMEM   : std_logic_vector(31 downto 0);
    signal RD2_EXMEM      : std_logic_vector(31 downto 0);
    signal MUXRES_EXMEM   : std_logic_vector(31 downto 0);
-------------------------------------------------------------------------------------------------------------------------------
+	
+	-- pipelines MEMWB
+   -- control unit signals
+   signal REGWRITE_MEMWB : std_logic;
+	signal MEMTOREG_MEMWB : std_logic;
+   -- the rest of EXMEM
+   signal READDATA_MEMWB : std_logic_vector(31 downto 0);
+   signal ALURES_MEMWB   : std_logic_vector(31 downto 0);
+   signal MUXRES_MEMWB   : std_logic_vector(31 downto 0);
+
 begin
 	
 	process(Clk, Reset)
@@ -213,20 +222,20 @@ begin
 		end if;
 	end process;
 	
-	-- instruction memory
+	-- INSTRUCTION MEMORY
 	INSTRUCTION_MEMORY <= IDataIn;
 	
-	-- data memory
-	DAddr <= P_Result;
-	DDataOut <= P_Rd2;
-	DRdEn <= P_MemRead;
-	DWrEn <= P_MemWrite;
+	-- DATA MEMORY
+	DAddr    <= ALURES_EXMEM;
+	DDataOut <= RD2_EXMEM;
+	DRdEn    <= MEMREAD_EXMEM;
+   DWrEn    <= MEMWRITE_EXMEM;
 	
 	-- MUX BRANCH
-   with (P_Branch and P_ZFlag) select MUX_OUT <= 
+   with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select MUX_OUT <= 
       PC_ADD4 when '0',
-      ALURESULT_ADD when '1',
-      ALURESULT_ADD when others; -- ERROR
+      ADDRES_EXMEM when '1',
+      ADDRES_EXMEM when others; -- ERROR
 
 	-- MUX REG DST
 	with REGDST_IDEX select WRITE_REGISTER_MUX <= 
@@ -241,14 +250,14 @@ begin
 		SIGEXT_IDEX when others; -- ERROR
 	
 	-- MUX MEM TO REG  
-   with P_MemToReg select WRITE_DATA_MUX <=
-      P_Result when '0',
-		DDataIn when '1',
-		DDataIn when others;
+   with MEMTOREG_MEMWB select WRITE_DATA_MUX <=
+      ALURES_MEMWB when '0',
+		READDATA_MEMWB when '1',
+		READDATA_MEMWB when others;
    
-   -- ======================
-   -- PIPELINES AND ALL THAT
-   -- ======================
+-- ==================================================================
+-- PIPELINES AND ALL THAT
+-- ==================================================================
 
 	-- IF/ID
 	process(Clk, Reset)
@@ -353,9 +362,24 @@ begin
    process(Clk, Reset)
 	begin
       if Reset = '1' then
+         -- control unit signals
+         REGWRITE_MEMWB <= '0';
+         MEMTOREG_MEMWB <= '0';
+   
+         -- data memory
+         READDATA_MEMWB <= (others => '0');
+         ALURES_MEMWB   <= (others => '0');
+         MUXRES_MEMWB   <= (others => '0');
          
       elsif rising_edge(Clk) then
-         
+         -- control unit signals
+         REGWRITE_MEMWB <= REGWRITE_EXMEM;
+         MEMTOREG_MEMWB <= MEMTOREG_EXMEM;
+   
+         -- data memory
+         READDATA_MEMWB <= DDataIn;
+         ALURES_MEMWB   <= ALURES_EXMEM;
+         MUXRES_MEMWB   <= MUXRES_EXMEM;
 		end if;
    end process;
    
@@ -372,7 +396,7 @@ begin
       Rd2   =>  P_Rd2,
       A3    =>  WRITE_REGISTER_MUX,
       Wd3   =>  WRITE_DATA_MUX,
-      We3   =>  P_RegWrite
+      We3   =>  REGWRITE_MEMWB
 	);
 	
 	u2: control_unit PORT MAP
