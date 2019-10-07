@@ -131,9 +131,27 @@ architecture rtl of processor is
    -- P_ZFlag
    signal P_ZFlag : std_logic;
    
--- P_ALUControl
-signal P_ALUControl : std_logic_vector(3 downto 0);
+	-- P_ALUControl
+	signal P_ALUControl : std_logic_vector(3 downto 0);
+	
+	-- pipeline_enables
+	signal E_IFID : std_logic;
+	signal E_IDEX : std_logic;
+	signal E_EXMEM : std_logic;
+	signal E_MEMWB : std_logic;
+	
+	-- pipelines IFID
+	signal PC_ADD4_IFID : std_logic_vector(31 downto 0);
+	signal INSTRUCTION_MEMORY_IFID : std_logic_vector(31 downto 0);
 
+
+	-- pipelines IDEX
+	signal PC_ADD4_IDEX : std_logic_vector(31 downto 0);
+	
+	
+	
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
 begin
 	
 	process(Clk, Reset)
@@ -153,10 +171,10 @@ begin
 	ALURESULT_ADD <= PC_ADD4 + (SIGN_EXTEND_OUT(29 downto 0) & "00" );
 	
 	-- Sign extend
-	with INSTRUCTION_MEMORY(15) select
-		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & INSTRUCTION_MEMORY(15 downto 0) when '0',
-						"1111111111111111" & INSTRUCTION_MEMORY(15 downto 0) when '1',
-						"1111111111111111" & INSTRUCTION_MEMORY(15 downto 0) when others ;
+	with INSTRUCTION_MEMORY_IFID(15) select
+		SIGN_EXTEND_OUT(31 downto 0) <= "0000000000000000" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '0',
+						"1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '1',
+						"1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when others ;
 
 	
 	-- mux
@@ -202,16 +220,45 @@ begin
 				DDataIn when others;
 	
 	
+	-- IFID
+	process(Clk, Reset)
+		begin
+		if Reset = '1' then
+			PC_ADD4_IFID <= (others => '0');
+			INSTRUCTION_MEMORY_IFID <= (others => '0');
+		elsif rising_edge(Clk) and E_IFID then
+			PC_ADD4_IFID <= PC_ADD4;
+			INSTRUCTION_MEMORY_IFID <= INSTRUCTION_MEMORY;
+		end if;
+	end process;
 	
 	
+	-- IDEX
+	process(Clk, Reset)
+		begin
+		if Reset = '1' then
+			PC_ADD4_IDEX <= (others => '0');	
+		elsif rising_edge(Clk) and E_IFID then
+			PC_ADD4_IDEX <= PC_ADD4_IFID;
+		end if;
+	end process;
+	
+	
+	
+	
+	
+	
+	
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
 	-- mapeo de componentes a las seniales
 	u1: reg_bank PORT MAP
 	(
 		 Clk   =>  Clk,
          Reset =>  Reset,
-         A1    =>  INSTRUCTION_MEMORY(25 downto 21),
+         A1    =>  INSTRUCTION_MEMORY_IFID(25 downto 21),
          Rd1   =>  P_Rd1,
-         A2    =>  INSTRUCTION_MEMORY(20 downto 16),
+         A2    =>  INSTRUCTION_MEMORY_IFID(20 downto 16),
          Rd2   =>  P_Rd2,
          A3    =>  WRITE_REGISTER_MUX,
          Wd3   =>  WRITE_DATA_MUX,
@@ -220,7 +267,7 @@ begin
 	
 	u2: control_unit PORT MAP
 	(
-		 OpCode   => INSTRUCTION_MEMORY(31 downto 26),	
+		 OpCode   => INSTRUCTION_MEMORY_IFID(31 downto 26),	
          Branch   => P_Branch,
          Jump     => P_Jump,
          MemToReg => P_MemToReg,
@@ -235,7 +282,7 @@ begin
 	u3: alu_control PORT MAP
 	(
 		 ALUOp      => P_ALUOp,
-		 Funct      => INSTRUCTION_MEMORY(5 downto 0),
+		 Funct      => INSTRUCTION_MEMORY_IFID(5 downto 0),
          ALUControl => P_ALUControl
 	);
 	

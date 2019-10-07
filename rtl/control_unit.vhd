@@ -12,7 +12,7 @@ use ieee.std_logic_unsigned.all;
 entity control_unit is
    port (
       -- Entrada = codigo de operacion en la instruccion:
-      OpCode   : in  std_logic_vector (5 downto 0);
+      OpCode   : in  std_logic_vector (31 downto 0);
       -- Seniales para el PC
       Branch   : out std_logic;                      -- 1 = Ejecutandose instruccion branch
       Jump     : out std_logic;                      -- 1 = Ejecutandose instruccion jump
@@ -55,19 +55,31 @@ architecture rtl of control_unit is
    constant ALUC_ERR   : t_aluOp := "111";
 
 begin
-   process
+   process(OpCode)
    begin
-      case OpCode is
+      case OpCode(31 downto 26) is
          when OP_RTYPE => -- R-Type [OK]
-            RegDst   <= '1';
-            AluSrc   <= '0';
-            MemToReg <= '0';
-            RegWrite <= '1';
-            MemRead  <= '0';
-            MemWrite <= '0';
-            Branch   <= '0';
-            Jump     <= '0';
-            AluOP    <= ALUC_RTYPE;
+			if OpCode = "00000000000000000000000000000000" then -- Caso todo 0's NOP
+				RegDst   <= '0';
+				AluSrc   <= '0';
+				MemToReg <= '0';
+				RegWrite <= '0';
+				MemRead  <= '0';
+				MemWrite <= '0';
+				Branch   <= '0';
+				Jump     <= '0';
+				AluOP    <= ALUC_ERR;
+			else then
+				RegDst   <= '1';
+				AluSrc   <= '0';
+				MemToReg <= '0';
+				RegWrite <= '1';
+				MemRead  <= '0';
+				MemWrite <= '0';
+				Branch   <= '0';
+				Jump     <= '0';
+				AluOP    <= ALUC_RTYPE;
+			end if;
          when OP_LW => -- LW [OK]
             RegDst   <= '0';
             AluSrc   <= '1';
@@ -138,6 +150,7 @@ begin
             Branch   <= '0';
             Jump     <= '1';
             AluOP    <= ALUC_ADD;
+		 when 
          when others => -- ERROR
             RegDst   <= '0';
             AluSrc   <= '0';
