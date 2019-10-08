@@ -37,48 +37,48 @@ end processor;
 architecture rtl of processor is
    component reg_bank -- Banco de registros
       port (
-         Clk   : in std_logic;                          -- Reloj activo en flanco de subida
-         Reset : in std_logic;                          -- Reset asoncrono a nivel alto
-         A1    : in std_logic_vector(4 downto 0);       -- Direccion para el puerto Rd1
-         Rd1   : out std_logic_vector(31 downto 0);     -- Dato del puerto Rd1
-         A2    : in std_logic_vector(4 downto 0);       -- Direccion para el puerto Rd2
-         Rd2   : out std_logic_vector(31 downto 0);     -- Dato del puerto Rd2
-         A3    : in std_logic_vector(4 downto 0);       -- Direccion para el puerto Wd3
-         Wd3   : in std_logic_vector(31 downto 0);      -- Dato de entrada Wd3
-         We3   : in std_logic                           -- Habilitacion de la escritura de Wd3
+         Clk   : in std_logic; -- Reloj activo en flanco de subida
+         Reset : in std_logic; -- Reset asoncrono a nivel alto
+         A1    : in std_logic_vector(4 downto 0); -- Direccion para el puerto Rd1
+         Rd1   : out std_logic_vector(31 downto 0); -- Dato del puerto Rd1
+         A2    : in std_logic_vector(4 downto 0); -- Direccion para el puerto Rd2
+         Rd2   : out std_logic_vector(31 downto 0); -- Dato del puerto Rd2
+         A3    : in std_logic_vector(4 downto 0); -- Direccion para el puerto Wd3
+         Wd3   : in std_logic_vector(31 downto 0); -- Dato de entrada Wd3
+         We3   : in std_logic -- Habilitacion de la escritura de Wd3
       );
    end component;
 
    component control_unit -- Unidad de control principal
       port (
          OpCode   : in  std_logic_vector (31 downto 0);
-         Branch   : out std_logic;                      -- 1 = Ejecutandose instruccion branch
-         Jump     : out std_logic;                      -- 1 = Ejecutandose instruccion jump
-         MemToReg : out std_logic;                      -- 1 = Escribir en registro la salida de la mem.
-         MemWrite : out std_logic;                      -- Escribir la memoria
-         MemRead  : out std_logic;                      -- Leer la memoria
-         ALUSrc   : out std_logic;                      -- 0 = oper.B es registro, 1 = es valor inm.
-         ALUOp    : out std_logic_vector (2 downto 0);  -- Tipo operacion para control de la ALU
-         RegWrite : out std_logic;                      -- 1=Escribir registro
-         RegDst   : out std_logic                       -- 0=Reg. destino es rt, 1=rd
+         Branch   : out std_logic; -- 1 = Ejecutandose instruccion branch
+         Jump     : out std_logic; -- 1 = Ejecutandose instruccion jump
+         MemToReg : out std_logic; -- 1 = Escribir en registro la salida de la mem.
+         MemWrite : out std_logic; -- Escribir la memoria
+         MemRead  : out std_logic; -- Leer la memoria
+         ALUSrc   : out std_logic; -- 0 = oper.B es registro, 1 = es valor inm.
+         ALUOp    : out std_logic_vector (2 downto 0); -- Tipo operacion para control de la ALU
+         RegWrite : out std_logic; -- 1=Escribir registro
+         RegDst   : out std_logic -- 0=Reg. destino es rt, 1=rd
       );
    end component;
 
    component alu_control
       port (
-         ALUOp  : in std_logic_vector (2 downto 0);     -- Codigo de control desde la unidad de control
-         Funct  : in std_logic_vector (5 downto 0);     -- Campo "funct" de la instruccion
+         ALUOp  : in std_logic_vector (2 downto 0); -- Codigo de control desde la unidad de control
+         Funct  : in std_logic_vector (5 downto 0); -- Campo "funct" de la instruccion
          ALUControl : out std_logic_vector (3 downto 0) -- Define operacion a ejecutar por la ALU
       );
    end component;
 
    component alu
       port (
-         OpA     : in  std_logic_vector (31 downto 0);  -- Operando A
-         OpB     : in  std_logic_vector (31 downto 0);  -- Operando B
-         Control : in  std_logic_vector ( 3 downto 0);  -- Codigo de control=op. a ejecutar
-         Result  : out std_logic_vector (31 downto 0);  -- Resultado
-         ZFlag   : out std_logic                        -- Flag Z
+         OpA     : in  std_logic_vector (31 downto 0); -- Operando A
+         OpB     : in  std_logic_vector (31 downto 0); -- Operando B
+         Control : in  std_logic_vector ( 3 downto 0); -- Codigo de control=op. a ejecutar
+         Result  : out std_logic_vector (31 downto 0); -- Resultado
+         ZFlag   : out std_logic -- Flag Z
       );
    end component;
    
@@ -111,7 +111,7 @@ architecture rtl of processor is
 
    signal PC_ADD4 : std_logic_vector(31 downto 0);
    
-   signal ALURESULT_ADD : std_logic_vector(31 downto 0);
+   signal ADDRESULT : std_logic_vector(31 downto 0);
    
    -- sign extend out
    signal SIGN_EXTEND_OUT :	std_logic_vector(31 downto 0);
@@ -122,14 +122,14 @@ architecture rtl of processor is
    -- instruction memory
    signal INSTRUCTION_MEMORY : std_logic_vector(31 downto 0);
    
-   -- WRITE_REGISTER_MUX
-   signal WRITE_REGISTER_MUX : std_logic_vector(4 downto 0);
+   -- REG_DST_MUX
+   signal REG_DST_MUX : std_logic_vector(4 downto 0);
    
    -- WRITE_DATA_MUX
    signal WRITE_DATA_MUX : std_logic_vector(31 downto 0);
    
-   -- MUX_ALU_IN
-   signal MUX_ALU_IN : std_logic_vector(31 downto 0);
+   -- ALU_IN_MUX
+   signal ALU_IN_MUX : std_logic_vector(31 downto 0);
 
    -- IAddr_SIGNAL
    signal IAddr_SIGNAL : std_logic_vector(31 downto 0);
@@ -172,11 +172,11 @@ architecture rtl of processor is
 	signal MEMREAD_EXMEM  : std_logic;
 	signal MEMWRITE_EXMEM : std_logic;
    -- the rest of EXMEM
-   signal ADDRES_EXMEM   : std_logic_vector(31 downto 0);
+   signal ADDRESULT_EXMEM   : std_logic_vector(31 downto 0);
    signal ZEROFLAG_EXMEM : std_logic;
    signal ALURES_EXMEM   : std_logic_vector(31 downto 0);
    signal RD2_EXMEM      : std_logic_vector(31 downto 0);
-   signal MUXRES_EXMEM   : std_logic_vector(4 downto 0);
+   signal REG_DST_MUX_EXMEM   : std_logic_vector(4 downto 0);
 	
 	-- pipelines MEMWB
    -- control unit signals
@@ -185,7 +185,7 @@ architecture rtl of processor is
    -- the rest of EXMEM
    signal READDATA_MEMWB : std_logic_vector(31 downto 0);
    signal ALURES_MEMWB   : std_logic_vector(31 downto 0);
-   signal MUXRES_MEMWB   : std_logic_vector(4 downto 0);
+   signal REG_DST_MUX_MEMWB   : std_logic_vector(4 downto 0);
 
 begin
 -- ==================================================================
@@ -195,8 +195,8 @@ begin
 	-- MUX PC SRC
    with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select PC_SRC_MUX <= 
       PC_ADD4 when '0', -- PC + 4
-      ADDRES_EXMEM when '1', -- Resultado de la ALU
-      ADDRES_EXMEM when others; -- ERROR
+      ADDRESULT_EXMEM when '1', -- Resultado de la ALU
+      ADDRESULT_EXMEM when others; -- ERROR
 
 	-- Cada clk metemos en IAddr_SIGNAL el valor PC_SRC_MUX
 	process(Clk, Reset)
@@ -233,10 +233,10 @@ begin
 -- ZONA ID
 -- ==================================================================
    
-   -- Extendemos el signo de la instruccion desde 15-0
-	with INSTRUCTION_MEMORY_IFID(15) select SIGN_EXTEND_OUT(31 downto 0) <= 
-      "0000000000000000" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '0',
-      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '1',
+   -- Extendemos el signo de la instruccion desde 15-0 a SIGN_EXTEND_OUT
+	with INSTRUCTION_MEMORY_IFID(15) select SIGN_EXTEND_OUT <= 
+      "0000000000000000" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '0', -- Extender 0
+      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '1', -- Extender 1
       "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when others;
 	
    -- Pipeline ID/EX
@@ -255,7 +255,7 @@ begin
 
          -- Current direction
          PC_ADD4_IDEX  <= (others => '0');
-         
+
          -- Register box
          RD1_IDEX      <= (others => '0');
          RD2_IDEX      <= (others => '0');
@@ -265,7 +265,7 @@ begin
          MUXEX1_IDEX   <= (others => '0');
          MUXEX2_IDEX   <= (others => '0');
       elsif rising_edge(Clk) then
-         -- Control unit
+         -- Guardamos las salidas mapeadas del control unit en ID/EX
          REGWRITE_IDEX <= P_RegWrite;
          MEMTOREG_IDEX <= P_MemToReg;
          BRANCH_IDEX   <= P_Branch;
@@ -275,15 +275,17 @@ begin
          ALUOP_IDEX    <= P_ALUOp;
          ALUSRC_IDEX   <= P_ALUSrc;
 
-         -- Current direction
-			PC_ADD4_IDEX  <= PC_ADD4_IFID;
+         -- Movemos el PC + 4 directamente
+         PC_ADD4_IDEX  <= PC_ADD4_IFID;
 
-         -- Register box
+         -- Metemos los registros leidos en ID/EX
          RD1_IDEX      <= P_Rd1;
          RD2_IDEX      <= P_Rd2;
 
-         -- Sign extend and others
+         -- Guardamos la instruccion con signo extendido
          SIGEXT_IDEX   <= SIGN_EXTEND_OUT;
+
+         -- Guardamos dos trozos de instruccion para el mux reg dst
          MUXEX1_IDEX   <= INSTRUCTION_MEMORY_IFID(20 downto 16);
          MUXEX2_IDEX   <= INSTRUCTION_MEMORY_IFID(15 downto 11);
 		end if;
@@ -293,53 +295,22 @@ begin
 -- ZONA EX
 -- ==================================================================
    
-   -- Pipeline ID/EX
-
--- ==================================================================
--- ZONA MEM
--- ==================================================================
-
-   -- Pipeline EX/MEM
-
--- ==================================================================
--- ZONA WB
--- ==================================================================
-
-   -- Pipeline MEM/WB
-
+	-- sumador del PC + 4 y un shift left
+	ADDRESULT <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
 	
-	-- sumador ALU Result
-	ALURESULT_ADD <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
-	
-	-- DATA MEMORY
-	DAddr    <= ALURES_EXMEM;
-	DDataOut <= RD2_EXMEM;
-	DRdEn    <= MEMREAD_EXMEM;
-   DWrEn    <= MEMWRITE_EXMEM;
+   -- mux activado por el cable alu src
+	with ALUSRC_IDEX select ALU_IN_MUX <=
+      RD2_IDEX when '0',
+      SIGEXT_IDEX when '1',
+      SIGEXT_IDEX when others; -- ERROR
 
-	-- MUX REG DST
-	with REGDST_IDEX select WRITE_REGISTER_MUX <= 
+	-- mux activado por el cable reg dst
+	with REGDST_IDEX select REG_DST_MUX <= 
       MUXEX1_IDEX when '0',
       MUXEX2_IDEX when '1', 
       MUXEX2_IDEX when others; -- ERROR
-   
-   -- MUX ALU SRC
-	with ALUSRC_IDEX select MUX_ALU_IN <=
-      RD2_IDEX when '0',
-		SIGEXT_IDEX when '1',
-		SIGEXT_IDEX when others; -- ERROR
-	
-	-- MUX MEM TO REG  
-   with MEMTOREG_MEMWB select WRITE_DATA_MUX <=
-      ALURES_MEMWB when '0',
-		READDATA_MEMWB when '1',
-		READDATA_MEMWB when others;
-   
--- ==================================================================
--- PIPELINES AND ALL THAT
--- ==================================================================
-   
-   -- EX/MEM
+
+   -- Pipeline EX/MEM
    process(Clk, Reset)
 	begin
       if Reset = '1' then
@@ -351,31 +322,49 @@ begin
          MEMWRITE_EXMEM <= '0';
 
          -- the rest of EXMEM
-         ADDRES_EXMEM   <= (others => '0');
-         ZEROFLAG_EXMEM <= '0';
-         ALURES_EXMEM   <= (others => '0');
-         RD2_EXMEM      <= (others => '0');
-         MUXRES_EXMEM   <= (others => '0');
+         ADDRESULT_EXMEM   <= (others => '0');
+         ZEROFLAG_EXMEM    <= '0';
+         ALURES_EXMEM      <= (others => '0');
+         RD2_EXMEM         <= (others => '0');
+         REG_DST_MUX_EXMEM <= (others => '0');
          
       elsif rising_edge(Clk) then
-         -- control unit signals (just move them)
+         -- Movemos directamente las signals de control unit
          REGWRITE_EXMEM <= REGWRITE_IDEX;
          MEMTOREG_EXMEM <= MEMTOREG_IDEX;
          BRANCH_EXMEM   <= BRANCH_IDEX;
          MEMREAD_EXMEM  <= MEMREAD_IDEX;
          MEMWRITE_EXMEM <= MEMWRITE_IDEX;
-         
-         -- the rest of EXMEM
-         ADDRES_EXMEM   <= ALURESULT_ADD;
+
+         -- Resultado de la sumadora del PC + 4 y el shift left 2
+         ADDRESULT_EXMEM <= ADDRESULT;
+
+         -- Flag zero de la alu (para el branch). Sacada del port map
          ZEROFLAG_EXMEM <= P_ZFlag;
+
+         -- Resultado de la ALU (sacado del port map)
          ALURES_EXMEM   <= P_Result;
+
+         -- Valor del registro 2 leido del Registers
          RD2_EXMEM      <= RD2_IDEX;
-         MUXRES_EXMEM   <= WRITE_REGISTER_MUX;
+
+         -- Resultado del Reg Dst MUX
+         REG_DST_MUX_EXMEM   <= REG_DST_MUX;
          
 		end if;
    end process;
-   
-   -- MEM/WB
+
+-- ==================================================================
+-- ZONA MEM
+-- ==================================================================
+
+	-- Entradas a Data memory
+	DAddr    <= ALURES_EXMEM; -- Metemos el resultado de la ALU en Data Memory
+	DDataOut <= RD2_EXMEM; -- Escribimos el dato leido del registro 2 
+	DRdEn    <= MEMREAD_EXMEM; -- Metemos el enable read
+   DWrEn    <= MEMWRITE_EXMEM; -- Metemos el enable write
+
+   -- Pipeline MEM/WB
    process(Clk, Reset)
 	begin
       if Reset = '1' then
@@ -386,64 +375,79 @@ begin
          -- data memory
          READDATA_MEMWB <= (others => '0');
          ALURES_MEMWB   <= (others => '0');
-         MUXRES_MEMWB   <= (others => '0');
+         REG_DST_MUX_MEMWB   <= (others => '0');
          
       elsif rising_edge(Clk) then
-         -- control unit signals
+         -- Movemos las signals del control unit a la pipeline
          REGWRITE_MEMWB <= REGWRITE_EXMEM;
          MEMTOREG_MEMWB <= MEMTOREG_EXMEM;
    
-         -- data memory
+         -- Dato leido de Data Memory
          READDATA_MEMWB <= DDataIn;
+
+         -- Guardamos el resultado de la alu
          ALURES_MEMWB   <= ALURES_EXMEM;
-         MUXRES_MEMWB   <= MUXRES_EXMEM;
+
+         -- Resultado del REG_DST_MUX (lo volvemos a mover sin hacer nada)
+         REG_DST_MUX_MEMWB   <= REG_DST_MUX_EXMEM;
 		end if;
    end process;
+
+-- ==================================================================
+-- ZONA WB
+-- ==================================================================
+
+	-- MUX MEM TO REG  
+   with MEMTOREG_MEMWB select WRITE_DATA_MUX <=
+      ALURES_MEMWB when '0',
+      READDATA_MEMWB when '1',
+      READDATA_MEMWB when others;
    
-------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------
-	-- mapeo de componentes a las seniales
+-- ==================================================================
+-- MAPEO DE SIGNALS
+-- ==================================================================
+
 	u1: reg_bank PORT MAP
 	(
-      Clk   =>  Clk,
-      Reset =>  Reset,
-      A1    =>  INSTRUCTION_MEMORY_IFID(25 downto 21),
-      Rd1   =>  P_Rd1,
-      A2    =>  INSTRUCTION_MEMORY_IFID(20 downto 16),
-      Rd2   =>  P_Rd2,
-      A3    =>  WRITE_REGISTER_MUX,
-      Wd3   =>  WRITE_DATA_MUX,
-      We3   =>  REGWRITE_MEMWB
+      Clk   =>  Clk, -- Entrada
+      Reset =>  Reset, -- Entrada
+      A1    =>  INSTRUCTION_MEMORY_IFID(25 downto 21), -- Entrada
+      Rd1   =>  P_Rd1, -- Salida
+      A2    =>  INSTRUCTION_MEMORY_IFID(20 downto 16), -- Entrada
+      Rd2   =>  P_Rd2, -- Salida
+      A3    =>  REG_DST_MUX, -- Entrada
+      Wd3   =>  WRITE_DATA_MUX, -- Entrada
+      We3   =>  REGWRITE_MEMWB -- Entrada
 	);
 	
 	u2: control_unit PORT MAP
 	(
-      OpCode   => INSTRUCTION_MEMORY_IFID,	
-      Branch   => P_Branch,
-      Jump     => P_Jump,
-      MemToReg => P_MemToReg,
-      MemWrite => P_MemWrite,
-      MemRead  => P_MemRead,
-      ALUSrc   => P_ALUSrc,
-      ALUOp    => P_ALUOp,
-      RegWrite => P_RegWrite,
-      RegDst   => P_RegDst  
+      OpCode   => INSTRUCTION_MEMORY_IFID, -- Entrada
+      Branch   => P_Branch, -- Salida
+      Jump     => P_Jump, -- Salida
+      MemToReg => P_MemToReg, -- Salida
+      MemWrite => P_MemWrite, -- Salida
+      MemRead  => P_MemRead, -- Salida
+      ALUSrc   => P_ALUSrc, -- Salida
+      ALUOp    => P_ALUOp, -- Salida
+      RegWrite => P_RegWrite, -- Salida
+      RegDst   => P_RegDst   -- Salida
 	);
 	
 	u3: alu_control PORT MAP
 	(
-      ALUOp      => ALUOP_IDEX,
-      Funct      => SIGEXT_IDEX(5 downto 0),
-      ALUControl => P_ALUControl
+      ALUOp      => ALUOP_IDEX, -- Entrada
+      Funct      => SIGEXT_IDEX(5 downto 0), -- Entrada
+      ALUControl => P_ALUControl -- Salida
 	);
 	
 	u4: alu PORT MAP
 	(
-      OpA     => P_Rd1,
-      OpB     => MUX_ALU_IN,
-      Control => P_ALUControl,
-      Result  => P_Result,
-      ZFlag   => P_ZFlag  
+      OpA     => RD1_IDEX, -- Entrada
+      OpB     => ALU_IN_MUX, -- Entrada
+      Control => P_ALUControl, -- Entrada
+      Result  => P_Result, -- Salida
+      ZFlag   => P_ZFlag -- Salida
 	);
 	
 end architecture;
