@@ -69,7 +69,7 @@ begin
 				Branch   <= '0';
 				Jump     <= '0';
 				AluOP    <= ALUC_ERR;
-			else then
+			else
 				RegDst   <= '1';
 				AluSrc   <= '0';
 				MemToReg <= '0';
@@ -149,8 +149,7 @@ begin
             MemWrite <= '0';
             Branch   <= '0';
             Jump     <= '1';
-            AluOP    <= ALUC_ADD;
-		 when 
+            AluOP    <= ALUC_ADD; 
          when others => -- ERROR
             RegDst   <= '0';
             AluSrc   <= '0';
@@ -161,5 +160,5 @@ begin
             Branch   <= '0';
             AluOP    <= ALUC_ERR;
       end case;
-   end
+   end process;
 end architecture;

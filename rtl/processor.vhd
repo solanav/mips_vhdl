@@ -51,7 +51,7 @@ architecture rtl of processor is
 
    component control_unit -- Unidad de control principal
       port (
-         OpCode   : in  std_logic_vector (5 downto 0);
+         OpCode   : in  std_logic_vector (31 downto 0);
          Branch   : out std_logic;                      -- 1 = Ejecutandose instruccion branch
          Jump     : out std_logic;                      -- 1 = Ejecutandose instruccion jump
          MemToReg : out std_logic;                      -- 1 = Escribir en registro la salida de la mem.
@@ -155,7 +155,7 @@ architecture rtl of processor is
 	signal MEMREAD_IDEX  : std_logic;
 	signal MEMWRITE_IDEX : std_logic;
 	signal REGDST_IDEX   : std_logic;
-	signal ALUOP_IDEX    : std_logic;
+	signal ALUOP_IDEX    : std_logic_vector (2 downto 0);
    signal ALUSRC_IDEX   : std_logic;
    -- PC 
    signal PC_ADD4_IDEX  : std_logic_vector(31 downto 0);
@@ -163,8 +163,8 @@ architecture rtl of processor is
    signal RD1_IDEX      : std_logic_vector(31 downto 0);
    signal RD2_IDEX      : std_logic_vector(31 downto 0);
    signal SIGEXT_IDEX   : std_logic_vector(31 downto 0);
-   signal MUXEX1_IDEX   : std_logic_vector(5 downto 0);
-   signal MUXEX2_IDEX   : std_logic_vector(5 downto 0);
+   signal MUXEX1_IDEX   : std_logic_vector(4 downto 0);
+   signal MUXEX2_IDEX   : std_logic_vector(4 downto 0);
 	
 	-- pipelines EXMEM
    -- control unit signals
@@ -175,10 +175,10 @@ architecture rtl of processor is
 	signal MEMWRITE_EXMEM : std_logic;
    -- the rest of EXMEM
    signal ADDRES_EXMEM   : std_logic_vector(31 downto 0);
-   signal ZEROFLAG_EXMEM : std_logic_vector(31 downto 0);
+   signal ZEROFLAG_EXMEM : std_logic;
    signal ALURES_EXMEM   : std_logic_vector(31 downto 0);
    signal RD2_EXMEM      : std_logic_vector(31 downto 0);
-   signal MUXRES_EXMEM   : std_logic_vector(31 downto 0);
+   signal MUXRES_EXMEM   : std_logic_vector(4 downto 0);
 	
 	-- pipelines MEMWB
    -- control unit signals
@@ -187,7 +187,7 @@ architecture rtl of processor is
    -- the rest of EXMEM
    signal READDATA_MEMWB : std_logic_vector(31 downto 0);
    signal ALURES_MEMWB   : std_logic_vector(31 downto 0);
-   signal MUXRES_MEMWB   : std_logic_vector(31 downto 0);
+   signal MUXRES_MEMWB   : std_logic_vector(4 downto 0);
 
 begin
 	
@@ -232,6 +232,7 @@ begin
    DWrEn    <= MEMWRITE_EXMEM;
 	
 	-- MUX BRANCH
+
    with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select MUX_OUT <= 
       PC_ADD4 when '0',
       ADDRES_EXMEM when '1',
@@ -239,9 +240,9 @@ begin
 
 	-- MUX REG DST
 	with REGDST_IDEX select WRITE_REGISTER_MUX <= 
-      MUXEX1_IDEX(20 downto 16) when '0',
-      MUXEX2_IDEX(15 downto 11) when '1', 
-      MUXEX2_IDEX(15 downto 11) when others; -- ERROR
+      MUXEX1_IDEX when '0',
+      MUXEX2_IDEX when '1', 
+      MUXEX2_IDEX when others; -- ERROR
    
    -- MUX ALU SOURCE
 	with ALUSRC_IDEX select MUX_ALU_IN <=
@@ -277,14 +278,14 @@ begin
 	begin
 		if Reset = '1' then
          -- Control unit
-         REGWRITE_IDEX <= '0'
-         MEMTOREG_IDEX <= '0'
-         BRANCH_IDEX   <= '0'
-         MEMREAD_IDEX  <= '0'
-         MEMWRITE_IDEX <= '0'
-         REGDST_IDEX   <= '0'
+         REGWRITE_IDEX <= '0';
+         MEMTOREG_IDEX <= '0';
+         BRANCH_IDEX   <= '0';
+         MEMREAD_IDEX  <= '0';
+         MEMWRITE_IDEX <= '0';
+         REGDST_IDEX   <= '0';
          ALUOP_IDEX    <= (others => '1');
-         ALUSRC_IDEX   <= '0'
+         ALUSRC_IDEX   <= '0';
 
          -- Current direction
          PC_ADD4_IDEX  <= (others => '0');
@@ -335,7 +336,7 @@ begin
 
          -- the rest of EXMEM
          ADDRES_EXMEM   <= (others => '0');
-         ZEROFLAG_EXMEM <= (others => '0');
+         ZEROFLAG_EXMEM <= '0';
          ALURES_EXMEM   <= (others => '0');
          RD2_EXMEM      <= (others => '0');
          MUXRES_EXMEM   <= (others => '0');
