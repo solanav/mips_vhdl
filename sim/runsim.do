@@ -36,5 +36,11 @@ set StdArithNoWarnings 0
 # Lanzar la simulacion, hasta que pare sola:
 run -all
 
+#add wave -position end sim:/processor_tb/i_processor/u4/*
+add wave -position end sim:/processor_tb/i_processor/u2/*
+#add wave -position end sim:/processor_tb/i_processor/u3/*
+add wave -position end sim:/processor_tb/i_processor/u1/*
+
+
 --------------------------------------------------------------------------------
 

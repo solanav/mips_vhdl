@@ -407,7 +407,7 @@ begin
 		Rd1   =>  P_Rd1, -- Salida
 		A2    =>  INSTRUCTION_MEMORY_IFID(20 downto 16), -- Entrada
 		Rd2   =>  P_Rd2, -- Salida
-		A3    =>  REG_DST_MUX, -- Entrada
+		A3    =>  REG_DST_MUX_MEMWB, -- Entrada
 		Wd3   =>  WRITE_DATA_MUX, -- Entrada
 		We3   =>  REGWRITE_MEMWB -- Entrada
 	);
