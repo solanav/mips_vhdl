@@ -45,7 +45,7 @@ architecture rtl of control_unit is
    constant OP_SLT   : t_opCode := "101010";
    constant OP_SLTI  : t_opCode := "001010";
    constant OP_J     : t_opCode := "000010";
-   constant OP_NOP   : t_opCode := "00000000000000000000000000000000";
+   constant OP_NOP   : std_logic_vector(31 downto 0) := "00000000000000000000000000000000";
 
    -- Operacion a realizar por la alu
    constant ALUC_RTYPE : t_aluOp := "010";
@@ -70,7 +70,7 @@ begin
 				Branch   <= '0';
 				Jump     <= '0';
 				AluOP    <= ALUC_ERR;
-			else
+			else -- R type
 				RegDst   <= '1';
 				AluSrc   <= '0';
 				MemToReg <= '0';
