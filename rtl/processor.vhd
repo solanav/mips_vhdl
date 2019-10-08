@@ -117,7 +117,7 @@ architecture rtl of processor is
    signal SIGN_EXTEND_OUT :	std_logic_vector(31 downto 0);
    
    -- mux_out
-   signal MUX_OUT :	std_logic_vector(31 downto 0);
+   signal PC_SRC_MUX :	std_logic_vector(31 downto 0);
    
    -- instruction memory
    signal INSTRUCTION_MEMORY : std_logic_vector(31 downto 0);
@@ -188,90 +188,58 @@ architecture rtl of processor is
    signal MUXRES_MEMWB   : std_logic_vector(4 downto 0);
 
 begin
-	
+-- ==================================================================
+-- ZONA IF
+-- ==================================================================
+
+	-- MUX PC SRC
+   with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select PC_SRC_MUX <= 
+      PC_ADD4 when '0', -- PC + 4
+      ADDRES_EXMEM when '1', -- Resultado de la ALU
+      ADDRES_EXMEM when others; -- ERROR
+
+	-- Cada clk metemos en IAddr_SIGNAL el valor PC_SRC_MUX
 	process(Clk, Reset)
 	begin
 	if Reset = '1' then
 		IAddr_SIGNAL <= (others => '0');
 	elsif rising_edge(Clk) then
-		IAddr_SIGNAL <= MUX_OUT;
+		IAddr_SIGNAL <= PC_SRC_MUX;
 	end if;
-	end process;
+   end process;
 
-	-- sumador despues PC
+	-- Metemos PC + 4 en PC_ADD4 (que tambien entra en IF/ID)
 	PC_ADD4 <= IAddr_SIGNAL + 4;
-	
-	-- sumador ALU Result
-	ALURESULT_ADD <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
-	
-	-- Sign extend
-	with INSTRUCTION_MEMORY_IFID(15) select SIGN_EXTEND_OUT(31 downto 0) <= 
-      "0000000000000000" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '0',
-      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '1',
-      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when others;
-	
-	-- pc
-	process(Clk, Reset) 
-	begin
-		if Reset = '1' then
-			IAddr <= (others => '0');	
-		elsif rising_edge(Clk) then
-			IAddr <= MUX_OUT;
-		end if;
-	end process;
-	
-	-- INSTRUCTION MEMORY
-	INSTRUCTION_MEMORY <= IDataIn;
-	
-	-- DATA MEMORY
-	DAddr    <= ALURES_EXMEM;
-	DDataOut <= RD2_EXMEM;
-	DRdEn    <= MEMREAD_EXMEM;
-   DWrEn    <= MEMWRITE_EXMEM;
-	
-	-- MUX BRANCH
-
-   with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select MUX_OUT <= 
-      PC_ADD4 when '0',
-      ADDRES_EXMEM when '1',
-      ADDRES_EXMEM when others; -- ERROR
-
-	-- MUX REG DST
-	with REGDST_IDEX select WRITE_REGISTER_MUX <= 
-      MUXEX1_IDEX when '0',
-      MUXEX2_IDEX when '1', 
-      MUXEX2_IDEX when others; -- ERROR
    
-   -- MUX ALU SOURCE
-	with ALUSRC_IDEX select MUX_ALU_IN <=
-      RD2_IDEX when '0',
-		SIGEXT_IDEX when '1',
-		SIGEXT_IDEX when others; -- ERROR
-	
-	-- MUX MEM TO REG  
-   with MEMTOREG_MEMWB select WRITE_DATA_MUX <=
-      ALURES_MEMWB when '0',
-		READDATA_MEMWB when '1',
-		READDATA_MEMWB when others;
-   
--- ==================================================================
--- PIPELINES AND ALL THAT
--- ==================================================================
+   -- Meter salida del PC en instruction memory
+	IAddr <= PC_SRC_MUX;
 
-	-- IF/ID
+	-- Meter la instruccion leida a IF/ID
+   INSTRUCTION_MEMORY <= IDataIn;
+   
+   -- Pipeline IF/ID
 	process(Clk, Reset)
 	begin
 		if Reset = '1' then
 			PC_ADD4_IFID <= (others => '0');
 			INSTRUCTION_MEMORY_IFID <= (others => '0');
 		elsif rising_edge(Clk) then
-			PC_ADD4_IFID <= PC_ADD4;
-			INSTRUCTION_MEMORY_IFID <= INSTRUCTION_MEMORY;
+			PC_ADD4_IFID <= PC_ADD4; -- Guardamos PC + 4
+			INSTRUCTION_MEMORY_IFID <= INSTRUCTION_MEMORY; -- Guardamos la instruccion leida
 		end if;
 	end process;
+   
+-- ==================================================================
+-- ZONA ID
+-- ==================================================================
+   
+   -- Extendemos el signo de la instruccion desde 15-0
+	with INSTRUCTION_MEMORY_IFID(15) select SIGN_EXTEND_OUT(31 downto 0) <= 
+      "0000000000000000" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '0',
+      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when '1',
+      "1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when others;
 	
-	
-	-- ID/EX
+   -- Pipeline ID/EX
 	process(Clk, Reset)
 	begin
 		if Reset = '1' then
@@ -320,6 +288,56 @@ begin
          MUXEX2_IDEX   <= INSTRUCTION_MEMORY_IFID(15 downto 11);
 		end if;
    end process;
+
+-- ==================================================================
+-- ZONA EX
+-- ==================================================================
+   
+   -- Pipeline ID/EX
+
+-- ==================================================================
+-- ZONA MEM
+-- ==================================================================
+
+   -- Pipeline EX/MEM
+
+-- ==================================================================
+-- ZONA WB
+-- ==================================================================
+
+   -- Pipeline MEM/WB
+
+	
+	-- sumador ALU Result
+	ALURESULT_ADD <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
+	
+	-- DATA MEMORY
+	DAddr    <= ALURES_EXMEM;
+	DDataOut <= RD2_EXMEM;
+	DRdEn    <= MEMREAD_EXMEM;
+   DWrEn    <= MEMWRITE_EXMEM;
+
+	-- MUX REG DST
+	with REGDST_IDEX select WRITE_REGISTER_MUX <= 
+      MUXEX1_IDEX when '0',
+      MUXEX2_IDEX when '1', 
+      MUXEX2_IDEX when others; -- ERROR
+   
+   -- MUX ALU SRC
+	with ALUSRC_IDEX select MUX_ALU_IN <=
+      RD2_IDEX when '0',
+		SIGEXT_IDEX when '1',
+		SIGEXT_IDEX when others; -- ERROR
+	
+	-- MUX MEM TO REG  
+   with MEMTOREG_MEMWB select WRITE_DATA_MUX <=
+      ALURES_MEMWB when '0',
+		READDATA_MEMWB when '1',
+		READDATA_MEMWB when others;
+   
+-- ==================================================================
+-- PIPELINES AND ALL THAT
+-- ==================================================================
    
    -- EX/MEM
    process(Clk, Reset)
