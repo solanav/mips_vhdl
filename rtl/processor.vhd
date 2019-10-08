@@ -85,10 +85,8 @@ architecture rtl of processor is
    -- reg_bank
    signal P_Rd1 : std_logic_vector(31 downto 0);
    signal P_Rd2 : std_logic_vector(31 downto 0);
-   signal P_A3  : std_logic_vector(4 downto 0);
    
    -- control_unit
-   signal P_OpCode   : std_logic_vector(31 downto 0);	
    signal P_Branch   : std_logic;
    signal P_Jump     : std_logic;
    signal P_MemToReg : std_logic;
