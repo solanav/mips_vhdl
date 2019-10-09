@@ -53,7 +53,7 @@ architecture rtl of alu_control is
    constant ALUC_ERR   : t_aluOp := "111";
 
 begin
-   process(ALUOp)
+   process(ALUOp, Funct)
    begin
       case ALUOp is
          when ALUC_RTYPE => -- R-Type

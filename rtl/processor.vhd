@@ -97,11 +97,6 @@ architecture rtl of processor is
 	signal P_RegWrite : std_logic;
 	signal P_RegDst   : std_logic;
 
-	-- alu_control
-	signal ALUOp      : std_logic_vector(2 downto 0);
-	signal Funct      : std_logic_vector(5 downto 0);
-	signal ALUControl : std_logic_vector(3 downto 0);
-
 	-- alu
 	signal P_OpA     : std_logic_vector(31 downto 0);
 	signal P_OpB     : std_logic_vector(31 downto 0);
@@ -189,7 +184,7 @@ begin
 -- ZONA IF
 -- ==================================================================
 
-	-- MUX PC SRC
+	-- MUX PC SRC (falta meter aqui el OR para que salte los jumps tambien)
 	with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select PC_SRC_MUX <= 
 		PC_ADD4 when '0', -- PC + 4
 		ADDRESULT_EXMEM when '1', -- Resultado de la ALU
@@ -202,14 +197,12 @@ begin
 			IAddr_SIGNAL <= (others => '0');
 		elsif rising_edge(Clk) then
 			IAddr_SIGNAL <= PC_SRC_MUX;
+			IAddr <= PC_SRC_MUX;
 		end if;
 	end process;
 
 	-- Metemos PC + 4 en PC_ADD4 (que tambien entra en IF/ID)
 	PC_ADD4 <= IAddr_SIGNAL + 4;
-   
-	-- Meter salida del PC en instruction memory
-	IAddr <= IAddr_SIGNAL;
    
 	-- Pipeline IF/ID
 	process(Clk, Reset)
