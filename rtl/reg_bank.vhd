@@ -45,7 +45,7 @@ begin
          for i in 0 to 31 loop
             regs(i) <= (others => '0');
          end loop;
-      elsif rising_edge(Clk) then
+      elsif falling_edge(Clk) then
          if We3 = '1' then
             if A3 /= "00000" then -- El R0 siempre es cero
                regs(conv_integer(A3)) <= Wd3;

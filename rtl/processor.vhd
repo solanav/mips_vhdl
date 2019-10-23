@@ -133,11 +133,13 @@ architecture rtl of processor is
 	signal P_ALUControl : std_logic_vector(3 downto 0);
 
 	-- pipelines IFID
+	signal ENABLE_IFID : std_logic;
 	signal PC_ADD4_IFID : std_logic_vector(31 downto 0);
 	signal INSTRUCTION_MEMORY_IFID : std_logic_vector(31 downto 0);
-
+	
 
 	-- pipelines IDEX
+	signal ENABLE_IDEX : std_logic;
 	-- control unit signals
 	signal REGWRITE_IDEX : std_logic;
 	signal MEMTOREG_IDEX : std_logic;
@@ -155,8 +157,11 @@ architecture rtl of processor is
 	signal SIGEXT_IDEX   : std_logic_vector(31 downto 0);
 	signal MUXEX1_IDEX   : std_logic_vector(4 downto 0);
 	signal MUXEX2_IDEX   : std_logic_vector(4 downto 0);
+	signal RS_IDEX       : std_logic_vector(4 downto 0);
+	signal RT_IDEX       : std_logic_vector(4 downto 0);
 
 	-- pipelines EXMEM
+	signal ENABLE_EXMEM : std_logic;
 	-- control unit signals
 	signal REGWRITE_EXMEM : std_logic;
 	signal MEMTOREG_EXMEM : std_logic;
@@ -171,6 +176,7 @@ architecture rtl of processor is
 	signal REG_DST_MUX_EXMEM   : std_logic_vector(4 downto 0);
 
 	-- pipelines MEMWB
+	signal ENABLE_MEMWB : std_logic;
 	-- control unit signals
 	signal REGWRITE_MEMWB : std_logic;
 	signal MEMTOREG_MEMWB : std_logic;
@@ -178,7 +184,18 @@ architecture rtl of processor is
 	signal READDATA_MEMWB : std_logic_vector(31 downto 0);
 	signal ALURES_MEMWB   : std_logic_vector(31 downto 0);
 	signal REG_DST_MUX_MEMWB   : std_logic_vector(4 downto 0);
-
+	
+	-- forwarding unit signals
+	signal FORWARD_A         : std_logic_vector(1 downto 0);
+	signal FORWARD_B         : std_logic_vector(1 downto 0);
+	signal MUX_FORWARD_A     : std_logic_vector(31 downto 0);
+	signal MUX_FORWARD_B     : std_logic_vector(31 downto 0);
+	
+	-- hazard unit
+	signal HAZARD_PC : std_logic;
+	signal HAZARD_MUX : std_logic;
+	
+	
 begin
 -- ==================================================================
 -- ZONA IF
@@ -205,12 +222,12 @@ begin
 	PC_ADD4 <= IAddr_SIGNAL + 4;
    
 	-- Pipeline IF/ID
-	process(Clk, Reset)
+	process(Clk, Reset, ENABLE_IFID)
 	begin
 		if Reset = '1' then
 			PC_ADD4_IFID <= (others => '0');
 			INSTRUCTION_MEMORY_IFID <= (others => '0');
-		elsif rising_edge(Clk) then
+		elsif rising_edge(Clk) and ENABLE_IFID= '1' then
 			PC_ADD4_IFID <= PC_ADD4; -- Guardamos PC + 4
 			INSTRUCTION_MEMORY_IFID <= IDataIn; -- Guardamos la instruccion leida
 		end if;
@@ -227,7 +244,7 @@ begin
 		"1111111111111111" & INSTRUCTION_MEMORY_IFID(15 downto 0) when others;
 	
    -- Pipeline ID/EX
-	process(Clk, Reset)
+	process(Clk, Reset, ENABLE_IDEX)
 	begin
 		if Reset = '1' then
 			-- Control unit
@@ -251,7 +268,10 @@ begin
 			SIGEXT_IDEX   <= (others => '0');
 			MUXEX1_IDEX   <= (others => '0');
 			MUXEX2_IDEX   <= (others => '0');
-		elsif rising_edge(Clk) then
+			
+			RS_IDEX <= (others => '0');
+			RT_IDEX <= (others => '0');
+		elsif rising_edge(Clk) and ENABLE_IDEX= '1' then
 			-- Guardamos las salidas mapeadas del control unit en ID/EX
 			REGWRITE_IDEX <= P_RegWrite;
 			MEMTOREG_IDEX <= P_MemToReg;
@@ -275,13 +295,16 @@ begin
 			-- Guardamos dos trozos de instruccion para el mux reg dst
 			MUXEX1_IDEX   <= INSTRUCTION_MEMORY_IFID(20 downto 16);
 			MUXEX2_IDEX   <= INSTRUCTION_MEMORY_IFID(15 downto 11);
+			
+			RS_IDEX <= INSTRUCTION_MEMORY_IFID(25 downto 21);
+			RT_IDEX <= INSTRUCTION_MEMORY_IFID(20 downto 16);
 		end if;
 	end process;
 
 -- ==================================================================
 -- ZONA EX
 -- ==================================================================
-   
+  
 	-- sumador del PC + 4 y un shift left
 	ADDRESULT <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
 
@@ -298,7 +321,7 @@ begin
 		MUXEX2_IDEX when others; -- ERROR
 
    -- Pipeline EX/MEM
-	process(Clk, Reset)
+	process(Clk, Reset, ENABLE_EXMEM)
 	begin
 		if Reset = '1' then
 			-- control unit signals
@@ -315,7 +338,7 @@ begin
 			RD2_EXMEM         <= (others => '0');
 			REG_DST_MUX_EXMEM <= (others => '0');
 
-		elsif rising_edge(Clk) then
+		elsif rising_edge(Clk) and ENABLE_EXMEM= '1' then
 			-- Movemos directamente las signals de control unit
 			REGWRITE_EXMEM <= REGWRITE_IDEX;
 			MEMTOREG_EXMEM <= MEMTOREG_IDEX;
@@ -351,7 +374,7 @@ begin
 	DWrEn    <= MEMWRITE_EXMEM; -- Metemos el enable write
 
    -- Pipeline MEM/WB
-	process(Clk, Reset)
+	process(Clk, Reset, ENABLE_MEMWB)
 	begin
 		if Reset = '1' then
 			-- control unit signals
@@ -362,7 +385,7 @@ begin
 			READDATA_MEMWB <= (others => '0');
 			ALURES_MEMWB   <= (others => '0');
 			REG_DST_MUX_MEMWB   <= (others => '0');
-		elsif rising_edge(Clk) then
+		elsif rising_edge(Clk) and ENABLE_MEMWB= '1' then
 			-- Movemos las signals del control unit a la pipeline
 			REGWRITE_MEMWB <= REGWRITE_EXMEM;
 			MEMTOREG_MEMWB <= MEMTOREG_EXMEM;
@@ -387,6 +410,49 @@ begin
 		ALURES_MEMWB when '0',
 		READDATA_MEMWB when '1',
 		READDATA_MEMWB when others;
+		
+		
+-- ==================================================================
+-- FORWARDING UNIT
+-- ==================================================================
+	
+	FORWARD_A <= "10" when (REGWRITE_EXMEM and (RD2_EXMEM/=0) and (RD2_EXMEM=RS_IDEX)) else
+				 "01" when (REGWRITE_MEMWB and (RD2_MEMWB/=0) and (RD2_MEMWB=RS_IDEX)) else
+				 "00";
+				 
+	FORWARD_B <= "10" when (REGWRITE_EXMEM and (RD2_EXMEM/=0) and (RD2_EXMEM=RT_IDEX)) else
+				 "01" when (REGWRITE_MEMWB and (RD2_MEMWB/=0) and (RD2_MEMWB=RT_IDEX)) else
+				 "00";
+	
+	with FORWARD_A select MUX_FORWARD_A <=
+		RD1_IDEX when "00",
+		WRITE_DATA_MUX when "01",
+		ALURES_EXMEM when "10",
+		ALURES_EXMEM when others;
+		
+	with FORWARD_B select MUX_FORWARD_B <=
+		RD2_IDEX when "00",
+		ALURES_EXMEM when "01",
+		WRITE_DATA_MUX when "10",
+		WRITE_DATA_MUX when others;
+	
+	
+-- ==================================================================
+-- HAZARD DETECTION UNIT
+-- ==================================================================
+
+	process(Reset, MEMREAD_IDEX, RT_IDEX, INSTRUCTION_MEMORY_IFID)
+	begin
+		if (Reset = '1' or ((INSTRUCTION_MEMORY_IFID(25 downto 21) = INSTRUCTION_MEMORY_IFID(20 downto 16)) or ((MEMREAD_IDEX = '1') and (RT_IDEX = INSTRUCTION_MEMORY_IFID(20 downto 16)))))then
+			HAZARD_PC   <= '0';
+			HAZARD_MUX  <= '0';
+			ENABLE_IFID <= '0';
+ 		else 
+			HAZARD_PC   <= '1';
+			HAZARD_MUX  <= '1';
+			ENABLE_IFID <= '1';
+		end if;
+	end process;
    
 -- ==================================================================
 -- MAPEO DE SIGNALS
