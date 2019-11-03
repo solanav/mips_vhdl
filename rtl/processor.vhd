@@ -170,7 +170,6 @@ architecture rtl of processor is
 	signal MEMWRITE_EXMEM : std_logic;
 	-- the rest of EXMEM
 	signal ADDRESULT_EXMEM   : std_logic_vector(31 downto 0);
-	signal ZEROFLAG_EXMEM : std_logic;
 	signal ALURES_EXMEM   : std_logic_vector(31 downto 0);
 	signal RD2_EXMEM      : std_logic_vector(31 downto 0);
 	signal REG_DST_MUX_EXMEM   : std_logic_vector(4 downto 0);
@@ -202,10 +201,10 @@ begin
 -- ==================================================================
 
 	-- MUX PC SRC (falta meter aqui el OR para que salte los jumps tambien)
-	with (BRANCH_EXMEM and ZEROFLAG_EXMEM) select PC_SRC_MUX <= 
+	with (P_Branch and (P_Rd1 = P_Rd2)) select PC_SRC_MUX <= 
 		PC_ADD4 when '0', -- PC + 4
-		ADDRESULT_EXMEM when '1', -- Resultado de la ALU
-		ADDRESULT_EXMEM when others; -- ERROR
+		ADDRESULT when '1', -- Resultado de la ALU
+		ADDRESULT when others; -- ERROR
 
 	-- Cada clk metemos en IAddr_SIGNAL el valor PC_SRC_MUX
 	process(Clk, Reset)
@@ -236,6 +235,12 @@ begin
 -- ==================================================================
 -- ZONA ID
 -- ==================================================================
+  
+	-- sumador del PC + 4 y un shift left
+	with P_Jump select ADDRESULT <= 
+		PC_ADD4_IFID + (SIGN_EXTEND_OUT(29 downto 0) & "00" ) when '0',
+		PC_ADD4_IFID(31 downto 28) & (INSTRUCTION_MEMORY_IFID(25 downto 0) & "00" ) when '1',
+		PC_ADD4_IFID(31 downto 28) & (INSTRUCTION_MEMORY_IFID(25 downto 0) & "00" ) when others;
    
    -- Extendemos el signo de la instruccion desde 15-0 a SIGN_EXTEND_OUT
 	with INSTRUCTION_MEMORY_IFID(15) select SIGN_EXTEND_OUT <= 
@@ -250,7 +255,6 @@ begin
 			-- Control unit
 			REGWRITE_IDEX <= '0';
 			MEMTOREG_IDEX <= '0';
-			BRANCH_IDEX   <= '0';
 			MEMREAD_IDEX  <= '0';
 			MEMWRITE_IDEX <= '0';
 			REGDST_IDEX   <= '0';
@@ -275,7 +279,6 @@ begin
 			-- Guardamos las salidas mapeadas del control unit en ID/EX
 			REGWRITE_IDEX <= P_RegWrite;
 			MEMTOREG_IDEX <= P_MemToReg;
-			BRANCH_IDEX   <= P_Branch;
 			MEMREAD_IDEX  <= P_MemRead;
 			MEMWRITE_IDEX <= P_MemWrite;
 			REGDST_IDEX   <= P_RegDst;
@@ -298,15 +301,24 @@ begin
 			
 			RS_IDEX <= INSTRUCTION_MEMORY_IFID(25 downto 21);
 			RT_IDEX <= INSTRUCTION_MEMORY_IFID(20 downto 16);
+			
+			-- Multiplexor despues de la hazard unit y la unidad de control 
+			if HAZARD_MUX = '1' then
+				REGWRITE_IDEX <= '0';
+				MEMTOREG_IDEX <= '0';
+				MEMREAD_IDEX  <= '0';
+				MEMWRITE_IDEX <= '0';
+				REGDST_IDEX   <= '0';
+				ALUOP_IDEX    <= (others => '0');
+				ALUSRC_IDEX   <= '0';
+			
+			
 		end if;
 	end process;
 
 -- ==================================================================
 -- ZONA EX
 -- ==================================================================
-  
-	-- sumador del PC + 4 y un shift left
-	ADDRESULT <= PC_ADD4_IDEX + (SIGEXT_IDEX(29 downto 0) & "00" );
 
 	-- mux activado por el cable alu src
 	with ALUSRC_IDEX select ALU_IN_MUX <=
@@ -327,13 +339,10 @@ begin
 			-- control unit signals
 			REGWRITE_EXMEM <= '0';
 			MEMTOREG_EXMEM <= '0';
-			BRANCH_EXMEM   <= '0';
 			MEMREAD_EXMEM  <= '0';
 			MEMWRITE_EXMEM <= '0';
 
 			-- the rest of EXMEM
-			ADDRESULT_EXMEM   <= (others => '0');
-			ZEROFLAG_EXMEM    <= '0';
 			ALURES_EXMEM      <= (others => '0');
 			RD2_EXMEM         <= (others => '0');
 			REG_DST_MUX_EXMEM <= (others => '0');
@@ -342,15 +351,8 @@ begin
 			-- Movemos directamente las signals de control unit
 			REGWRITE_EXMEM <= REGWRITE_IDEX;
 			MEMTOREG_EXMEM <= MEMTOREG_IDEX;
-			BRANCH_EXMEM   <= BRANCH_IDEX;
 			MEMREAD_EXMEM  <= MEMREAD_IDEX;
 			MEMWRITE_EXMEM <= MEMWRITE_IDEX;
-
-			-- Resultado de la sumadora del PC + 4 y el shift left 2
-			ADDRESULT_EXMEM <= ADDRESULT;
-
-			-- Flag zero de la alu (para el branch). Sacada del port map
-			ZEROFLAG_EXMEM <= P_ZFlag;
 
 			-- Resultado de la ALU (sacado del port map)
 			ALURES_EXMEM   <= P_Result;
