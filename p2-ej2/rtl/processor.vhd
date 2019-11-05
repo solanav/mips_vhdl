@@ -181,6 +181,9 @@ ARCHITECTURE rtl OF processor IS
 
 	SIGNAL PCSRC : std_logic;
 	SIGNAL REGS_ARE_EQUAL_ID : std_logic;
+	SIGNAL SLOWER_BRANCH : std_logic;
+	SIGNAL SLOWER_JUMP : std_logic;
+	SIGNAL CLEAN_PIPELINE : std_logic;
 
 BEGIN
 	-- ==================================================================
@@ -190,7 +193,10 @@ BEGIN
 	-- Controlador para el mux de antes del PC
 	REGS_ARE_EQUAL_ID <= '1' WHEN P_Rd1 = P_Rd2 else '0';
 	-- PCSRC <= '1' when (BRANCH_EXMEM = '1' AND ZEROFLAG_EXMEM = '1') else '0';
-	PCSRC <= '1' when ((P_Branch = '1' AND REGS_ARE_EQUAL_ID = '1') OR (P_Jump = '1')) else '0';
+	PCSRC <= '1' when ((SLOWER_BRANCH = '1' AND REGS_ARE_EQUAL_ID = '1') OR (SLOWER_JUMP = '1')) else '0';
+
+	-- Cuando vamos a saltar al branch, tiramos todo
+	CLEAN_PIPELINE <= '1' WHEN PCSRC = '1' else '0';
 
 	-- MUX PC SRC (falta meter aqui el OR para que salte los jumps tambien)
 	WITH PCSRC SELECT PC_SRC_MUX <=
@@ -217,7 +223,7 @@ BEGIN
 	-- Pipeline IF/ID
 	PROCESS (Clk, Reset)
 	BEGIN
-		IF Reset = '1' THEN
+		IF Reset = '1' OR CLEAN_PIPELINE = '1' THEN
 			PC_ADD4_IFID <= (OTHERS => '0');
 			INSTRUCTION_MEMORY_IFID <= (OTHERS => '0');
 		ELSIF rising_edge(Clk) AND HAZARD_ACTIVE = '0' THEN
@@ -229,7 +235,7 @@ BEGIN
 	-- ==================================================================
 	-- ZONA ID
 	-- ==================================================================
-
+	
 	-- sumador del PC + 4 y un shift left
 	WITH P_Jump SELECT ADDRESULT <=
 		PC_ADD4_IFID + (SIGN_EXTEND_OUT(29 DOWNTO 0) & "00") WHEN '0', -- En caso del BRANCH
@@ -245,7 +251,7 @@ BEGIN
 	-- Pipeline ID/EX
 	PROCESS (Clk, Reset)
 	BEGIN
-		IF Reset = '1' THEN
+		IF Reset = '1' OR CLEAN_PIPELINE = '1' THEN
 			-- Control unit
 			REGWRITE_IDEX <= '0';
 			MEMTOREG_IDEX <= '0';
@@ -269,6 +275,9 @@ BEGIN
 
 			RS_IDEX <= (OTHERS => '0');
 			RT_IDEX <= (OTHERS => '0');
+			
+			SLOWER_BRANCH <= '0';
+			SLOWER_JUMP <= '0';
 		ELSIF rising_edge(Clk) THEN
 			-- Movemos el PC + 4 directamente
 			PC_ADD4_IDEX <= PC_ADD4_IFID;
@@ -296,6 +305,8 @@ BEGIN
 				REGDST_IDEX <= '0';
 				ALUOP_IDEX <= (OTHERS => '1');
 				ALUSRC_IDEX <= '0';
+				SLOWER_BRANCH <= '0';
+				SLOWER_JUMP <= '0';
 			ELSE
 				-- Guardamos las salidas mapeadas del control unit en ID/EX
 				REGWRITE_IDEX <= P_RegWrite;
@@ -305,6 +316,8 @@ BEGIN
 				REGDST_IDEX <= P_RegDst;
 				ALUOP_IDEX <= P_ALUOp;
 				ALUSRC_IDEX <= P_ALUSrc;
+				SLOWER_BRANCH <= P_Branch;
+				SLOWER_JUMP <= P_Jump;
 			END IF;
 		END IF;
 	END PROCESS;
