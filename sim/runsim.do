@@ -24,23 +24,12 @@ vsim -novopt -gINIT_FILENAME_INST="instrucciones" -gINIT_FILENAME_DATA="datos" -
 
 # Opcion para guardar todas las ondas:
 log -r /*
-
 # Mostrar las ondas:
 do wave.do
-
 # Opcion del simulador para evitar warnings tipicos en tiempo 0 :
 set StdArithNoWarnings 1
 run 0 ns
 set StdArithNoWarnings 0
-
 # Lanzar la simulacion, hasta que pare sola:
 run -all
-
-#add wave -position end sim:/processor_tb/i_processor/u4/*
-add wave -position end sim:/processor_tb/i_processor/u2/*
-#add wave -position end sim:/processor_tb/i_processor/u3/*
-add wave -position end sim:/processor_tb/i_processor/u1/*
-
-
 --------------------------------------------------------------------------------
-
