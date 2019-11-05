@@ -373,7 +373,7 @@ BEGIN
 
 	-- Entradas a Data memory
 	DAddr <= ALURES_EXMEM; -- Metemos el resultado de la ALU en Data Memory
-	DDataOut <= MUX_FORWARD_B; -- Escribimos el dato leido desde el mux forwarding B
+	DDataOut <= RD2_EXMEM; -- Escribimos el dato leido desde el mux forwarding B
 	DRdEn <= MEMREAD_EXMEM; -- Metemos el enable read
 	DWrEn <= MEMWRITE_EXMEM; -- Metemos el enable write
 
